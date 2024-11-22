@@ -8,34 +8,35 @@ import time
 # Customizable Variables
 # ===============================
 
+# Window settings
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 800
+
 # Time settings (in seconds)
 FIXATION_TIME = 0.5           # Duration of fixation cross
-STIMULUS_TIME = 0.2           # Duration of stimulus presentation
-RESPONSE_WINDOW = 2.5         # Time allowed for participant to respond
+RESPONSE_WINDOW = 1.5         # Time allowed for participant to respond
 FEEDBACK_TIME = 0.5           # Duration of feedback screen
 
 # Break settings
-BREAK_INTERVAL = 20           # Number of trials between breaks
+BREAK_INTERVAL = 25           # Number of trials between breaks
 BREAK_TEXT = "Take a short break! Press SPACE to continue."
 
 # Trial settings
-TOTAL_TRIALS = 60             # Total number of trials in the experiment
-TRIALS_PER_SET = 10           # Number of trials in each set (if sets are used)
-
-# Participant info defaults (useful for testing)
-DEFAULT_PARTICIPANT_NAME = "Test"
-DEFAULT_PARTICIPANT_NUMBER = "01"
+TOTAL_TRIALS = 200            # Total number of trials in the experiment
 
 # Instructions
-INSTRUCTIONS = ("Press Z for Happy, X for Angry, C for Neutral.\n"
+INSTRUCTIONS = ("Press J for Happy, K for Neutral, L for Angry.\n"
                 "Press SPACE to start.")
 
 # Paths to stimuli
 STIMULI_PATHS = {
     "happy": "happy",
-    "angry": "angry",
-    "neutral": "neutral"
+    "neutral": "neutral",
+    "angry": "angry"
 }
+
+# Key mappings
+key_mapping = {"happy": pygame.K_j, "neutral": pygame.K_k, "angry": pygame.K_l}
 
 # ===============================
 # Experiment Code
@@ -44,7 +45,7 @@ STIMULI_PATHS = {
 pygame.init()
 
 # Screen settings
-screen = pygame.display.set_mode((800, 600))
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("Emotion Categorization Experiment")
 font = pygame.font.Font(None, 50)
 
@@ -69,12 +70,16 @@ def get_participant_info():
 
         for i, text in enumerate(instructions):
             text_surface = font.render(text, True, BLACK)
-            screen.blit(text_surface, (50, 100 + i * 100))
+            text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, 100 + i * 100))
+            screen.blit(text_surface, text_rect)
 
-        name_field = font.render(f"Name: {participant_name}", True, BLACK)
-        number_field = font.render(f"Number: {participant_number}", True, BLACK)
-        screen.blit(name_field, (50, 400))
-        screen.blit(number_field, (50, 500))
+        name_surface = font.render(f"Name: {participant_name}", True, BLACK)
+        name_rect = name_surface.get_rect(center=(WINDOW_WIDTH // 2, 400))
+        screen.blit(name_surface, name_rect)
+
+        number_surface = font.render(f"Number: {participant_number}", True, BLACK)
+        number_rect = number_surface.get_rect(center=(WINDOW_WIDTH // 2, 500))
+        screen.blit(number_surface, number_rect)
 
         pygame.display.flip()
 
@@ -100,6 +105,18 @@ def get_participant_info():
                         participant_number += event.unicode
 
 
+# Create or append results to a CSV file
+def save_results(participant_name, participant_number, results, is_first_write=False):
+    output_file = f"{participant_name}_{participant_number}_results.csv"
+    with open(output_file, mode="a", newline="") as file:
+        writer = csv.DictWriter(
+            file, fieldnames=["session_number", "emotion", "user_emotion", "reaction_time", "response_type"]
+        )
+        if is_first_write:
+            writer.writeheader()  # Write header only once
+        writer.writerows(results)
+
+
 # Load stimuli
 stimuli = []
 for emotion, folder in STIMULI_PATHS.items():
@@ -109,9 +126,6 @@ for emotion, folder in STIMULI_PATHS.items():
 # Randomize stimuli
 random.shuffle(stimuli)
 stimuli = stimuli[:TOTAL_TRIALS]  # Limit total trials if TOTAL_TRIALS is set
-
-# Key mappings
-key_mapping = {"happy": pygame.K_z, "angry": pygame.K_x, "neutral": pygame.K_c}
 
 # Get participant info
 participant_name, participant_number = get_participant_info()
@@ -124,7 +138,8 @@ screen.fill(WHITE)
 lines = INSTRUCTIONS.split("\n")
 for i, line in enumerate(lines):
     text_surface = font.render(line, True, BLACK)
-    screen.blit(text_surface, (50, 250 + i * 50))
+    text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, 200 + i * 50))
+    screen.blit(text_surface, text_rect)
 pygame.display.flip()
 
 waiting_for_space = True
@@ -136,69 +151,92 @@ while waiting_for_space:
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
             waiting_for_space = False
 
-# Run trials
+# Initialize experiment variables
 results = []
-for trial_index, trial in enumerate(stimuli):
-    # Show trials left
-    screen.fill(WHITE)
-    trials_left_text = font.render(f"Trials Left: {TOTAL_TRIALS - trial_index}", True, BLACK)
-    screen.blit(trials_left_text, (50, 50))
+session_number = 1
+first_write = True
 
+# Run trials
+for trial_index, trial in enumerate(stimuli):
     # Fixation cross
+    screen.fill(WHITE)
     text_surface = font.render("+", True, BLACK)
-    screen.blit(text_surface, (400, 300))
+    text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+    screen.blit(text_surface, text_rect)
     pygame.display.flip()
     pygame.time.delay(int(FIXATION_TIME * 1000))
 
     # Show stimulus
     img = pygame.image.load(trial["path"])
-    img = pygame.transform.scale(img, (400, 400))
+    img = pygame.transform.scale(img, (400, 400))  # Resize the image
+    img_rect = img.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
     screen.fill(WHITE)
-    screen.blit(img, (200, 100))
-    pygame.display.flip()
+    screen.blit(img, img_rect)  # Center the image
+    pygame.display.flip()  # Render the image on the screen
 
-    # Collect response
+    # Start response window only after image is displayed
     start_time = time.time()
     response = None
     reaction_time = None
     correct = False
+    user_emotion = None
     while time.time() - start_time < RESPONSE_WINDOW:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
                 response = event.key
                 end_time = time.time()
                 reaction_time = end_time - start_time
-                correct = key_mapping[trial["emotion"]] == response
+
+                # Determine user input emotion
+                for emotion, key in key_mapping.items():
+                    if response == key:
+                        user_emotion = emotion
+                        break
+
+                # Check correctness
+                correct = trial["emotion"] == user_emotion
                 break
         if response:
             break
 
-    # Determine response type
-    if not response:
-        response_type = "No Response"
-    else:
+    # Only log valid responses
+    if response:
         response_type = "Correct" if correct else "Incorrect"
+        results.append({
+            "session_number": session_number,
+            "emotion": trial["emotion"],
+            "user_emotion": user_emotion,
+            "reaction_time": reaction_time,
+            "response_type": response_type,
+        })
 
-    # Feedback
-    screen.fill(WHITE)
-    feedback_color = (0, 255, 0) if response_type == "Correct" else (255, 0, 0)
-    text_surface = font.render(response_type, True, feedback_color)
-    screen.blit(text_surface, (350, 300))
-    pygame.display.flip()
-    pygame.time.delay(int(FEEDBACK_TIME * 1000))
-
-    # Log trial results
-    results.append({
-        "emotion": trial["emotion"],
-        "reaction_time": reaction_time,
-        "response_type": response_type
-    })
+        # Feedback
+        screen.fill(WHITE)
+        feedback_color = (0, 255, 0) if response_type == "Correct" else (255, 0, 0)
+        text_surface = font.render(response_type, True, feedback_color)
+        text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+        screen.blit(text_surface, text_rect)
+        pygame.display.flip()
+        pygame.time.delay(int(FEEDBACK_TIME * 1000))
 
     # Break after specified interval
     if (trial_index + 1) % BREAK_INTERVAL == 0 and trial_index + 1 < TOTAL_TRIALS:
+        # Save results so far
+        save_results(participant_name, participant_number, results, is_first_write=first_write)
+        first_write = False  # Header already written
+        results = []  # Clear results for the next session
+
+        # Increment session number
+        session_number += 1
+
+        # Display break screen
+        remaining_trials = TOTAL_TRIALS - (trial_index + 1)
         screen.fill(WHITE)
-        rest_text = font.render(BREAK_TEXT, True, BLACK)
-        screen.blit(rest_text, (50, 300))
+        rest_lines = [BREAK_TEXT, f"Trials Remaining: {remaining_trials}"]
+        for i, line in enumerate(rest_lines):
+            text_surface = font.render(line, True, BLACK)
+            text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, 200 + i * 50))
+            screen.blit(text_surface, text_rect)
         pygame.display.flip()
 
         waiting_for_space = True
@@ -210,17 +248,15 @@ for trial_index, trial in enumerate(stimuli):
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     waiting_for_space = False
 
-# Save results to a CSV file named after the participant
-output_file = f"{participant_name}_{participant_number}_results.csv"
-with open(output_file, mode="w", newline="") as file:
-    writer = csv.DictWriter(file, fieldnames=["emotion", "reaction_time", "response_type"])
-    writer.writeheader()
-    writer.writerows(results)
+# Save final session results
+if results:
+    save_results(participant_name, participant_number, results, is_first_write=first_write)
 
 # End of experiment
 screen.fill(WHITE)
 text_surface = font.render("Experiment Completed! Results saved.", True, BLACK)
-screen.blit(text_surface, (150, 300))
+text_rect = text_surface.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2))
+screen.blit(text_surface, text_rect)
 pygame.display.flip()
 pygame.time.delay(3000)
 
