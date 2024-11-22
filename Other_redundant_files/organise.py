@@ -3,7 +3,7 @@ import shutil
 
 def organize_kdef_images(kdef_root):
     # Define the target folders to be created
-    target_folders = ["happy", "neutral", "angry"]
+    target_folders = ["happy", "neutral", "sad"]
     
     # Create target folders in the same directory as this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +17,7 @@ def organize_kdef_images(kdef_root):
     emotion_mapping = {
         "happy": "HAS.JPG",
         "neutral": "NES.JPG",
-        "angry": "ANS.JPG"
+        "sad": "SAS.JPG"
     }
     
     # Iterate over each subject folder in the root directory
