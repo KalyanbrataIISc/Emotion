@@ -107,7 +107,7 @@ def get_participant_info():
 
 # Create or append results to a CSV file
 def save_results(participant_name, participant_number, results, is_first_write=False):
-    output_file = f"{participant_name}_{participant_number}_results.csv"
+    output_file = f"{participant_name}_{participant_number}_exp1_results.csv"
     with open(output_file, mode="a", newline="") as file:
         writer = csv.DictWriter(
             file, fieldnames=["session_number", "emotion", "user_emotion", "reaction_time", "response_type"]
