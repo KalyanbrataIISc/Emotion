@@ -30,9 +30,9 @@ INSTRUCTIONS = ("Press J for Happy, K for Neutral, L for Angry.\n"
 
 # Paths to stimuli
 STIMULI_PATHS = {
-    "happy": "happy",
-    "neutral": "neutral",
-    "angry": "angry"
+    "happy": "distractors/happy",
+    "neutral": "distractors/neutral",
+    "angry": "distractors/angry"
 }
 
 # Key mappings
